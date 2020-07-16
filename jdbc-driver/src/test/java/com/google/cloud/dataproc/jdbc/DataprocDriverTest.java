@@ -30,38 +30,45 @@ public class DataprocDriverTest {
     }
 
     @Test
-    public void testAcceptsURLNull() throws SQLException {
+    public void acceptsURL_null() throws SQLException {
         String url = null;
         assertThat(driver.acceptsURL(url)).isFalse();
     }
 
     @Test
-    public void testAcceptsURLEmpty() throws SQLException {
+    public void acceptsURL_Hive_empty() throws SQLException {
         String url = "";
         assertThat(driver.acceptsURL(url)).isFalse();
     }
 
     @Test
-    public void testAcceptsURLHiveCorrectIncomplete() throws SQLException {
+    public void acceptsURL_Hive_incomplete() throws SQLException {
         String url = "jdbc:dataproc://";
+        assertThat(driver.acceptsURL(url)).isFalse();
+    }
+
+    @Test
+    public void acceptsURL_Hive_incomplete_isAccepted() throws SQLException {
+        // This is accepted as in later method a more specific error exception will be thrown
+        String url = "jdbc:dataproc://hive/";
         assertThat(driver.acceptsURL(url)).isTrue();
     }
 
     @Test
-    public void testAcceptsURLHiveCorrect() throws SQLException {
-        String url = "jdbc:dataproc://hive;clusterName=test";
+    public void acceptsURL_Hive_correct() throws SQLException {
+        String url = "jdbc:dataproc://hive/;clusterName=test";
         assertThat(driver.acceptsURL(url)).isTrue();
     }
 
     @Test
-    public void testAcceptsURLOtherCorrect() throws SQLException {
-        String url = "jdbc:dataproc://other-protocol";
-        assertThat(driver.acceptsURL(url)).isTrue();
+    public void acceptsURL_Hive_otherProtocol_notAccepted() throws SQLException {
+        String url = "jdbc:dataproc://other-protocol/";
+        assertThat(driver.acceptsURL(url)).isFalse();
     }
 
     @Test
-    public void testAcceptsURLIncorrect() throws SQLException {
-        String url = "jdbc:data://hive;clusterName=test";
+    public void acceptsURL_Hive_incorrectScheme() throws SQLException {
+        String url = "jdbc:data://hive/;clusterName=test";
         assertThat(driver.acceptsURL(url)).isFalse();
     }
 }

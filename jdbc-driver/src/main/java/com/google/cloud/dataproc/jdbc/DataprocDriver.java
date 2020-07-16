@@ -15,6 +15,8 @@
  */
 package com.google.cloud.dataproc.jdbc;
 
+import static com.google.cloud.dataproc.jdbc.HiveUrlUtils.formatHiveUrl;
+
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.Connection;
 import java.sql.Driver;
@@ -29,7 +31,7 @@ import java.util.regex.Pattern;
 public class DataprocDriver implements Driver {
 
     // Expected JDBC URL prefix format
-    private static final String URL_PREFIX = "jdbc:dataproc://";
+    public static final String DATAPROC_JDBC_HIVE_URL_SCHEMA = "jdbc:dataproc://hive/";
 
     @Override
     public Connection connect(String url, Properties info) throws SQLException {
@@ -37,8 +39,9 @@ public class DataprocDriver implements Driver {
     }
 
     @Override
-    public boolean acceptsURL(String url) throws SQLException {
-        return url != null && Pattern.matches(URL_PREFIX + ".*", url);
+    public boolean acceptsURL(String url) {
+        // Other protocols may be supported later, but for now only accept Hive
+        return url != null && url.startsWith(DATAPROC_JDBC_HIVE_URL_SCHEMA);
     }
 
     @Override
@@ -71,12 +74,26 @@ public class DataprocDriver implements Driver {
      * jdbc:hive2://<host>:<port>/<dbName>;transportMode=http;httpPath=<http_endpoint>;
      * <otherSessionConfs>?<hiveConfs>#<hiveVars>
      *
-     * @param url user passed in JDBC URL
-     * @param info user passed in connection properties
+     * @param url client passed in JDBC URL
+     * @param info client passed in connection properties
      * @return the created Hive Connection
      */
     @VisibleForTesting
-    Connection createConnection(String url, Properties info) {
-        return null;
+    Connection createConnection(String url, Properties info) throws SQLException {
+        // Valid url format:
+        // jdbc:dataproc://<protocol>/<db>;clusterName=<>;other_sess_var_list?hive_conf_list#hive_var_list
+
+        if (url.startsWith(DATAPROC_JDBC_HIVE_URL_SCHEMA)) {
+            try {
+                String hiveURL = formatHiveUrl(url);
+            } catch (InvalidURLException e) {
+                throw new SQLException(e.getCause());
+            }
+            // TODO: return HiveConnection
+            return null;
+        } else {
+            // TODO: support other protocol
+            return null;
+        }
     }
 }
