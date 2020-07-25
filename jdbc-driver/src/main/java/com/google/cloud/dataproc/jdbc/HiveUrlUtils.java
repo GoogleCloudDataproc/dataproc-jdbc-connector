@@ -36,7 +36,7 @@ public class HiveUrlUtils {
                     "port",
                     "httpPath",
                     "transportMode");
-    
+
     /**
      * Parses client url and extracts Hive connection parameters.
      *
@@ -95,9 +95,17 @@ public class HiveUrlUtils {
                 !paramsMap.containsKey("transportMode"),
                 "Invalid variable.\nPlease do not include transportMode.");
 
+        // Client must specify projectId and region
+        checkUrl(paramsMap.containsKey("projectId"), "Please provide projectId.");
+        checkUrl(paramsMap.containsKey("region"), "Please provide region.");
+        paramBuilder
+                .setRegion(paramsMap.get("region"))
+                .setProjectId(paramsMap.get("projectId"))
+                .setClusterName(paramsMap.get("clusterName"))
+                .setClusterPoolLabel(paramsMap.get("clusterPoolLabel"));
+
         try {
-            int port =
-                    Integer.valueOf(paramsMap.getOrDefault("port", String.valueOf(HIVE_DEFAULT_PORT)));
+            int port = Integer.valueOf(paramsMap.getOrDefault("port", String.valueOf(HIVE_DEFAULT_PORT)));
             paramBuilder.setPort(port);
         } catch (NumberFormatException e) {
             throw new InvalidURLException(
@@ -105,11 +113,6 @@ public class HiveUrlUtils {
                             "'port=%s' Please indicate correct port number or remove the field.",
                             paramsMap.get("port")));
         }
-
-        String clusterName = paramsMap.get("clusterName");
-        // TODO: check if cluster name is valid / cluster master node name -m or -m-0
-        checkUrl(clusterName != null, "'clusterName=%s' Please indicate cluster name.", clusterName);
-        paramBuilder.setHost(String.format("%s-m", clusterName));
 
         return paramBuilder.build();
     }
@@ -122,7 +125,7 @@ public class HiveUrlUtils {
      * @param msgParams optional message parameter
      * @throws InvalidURLException
      */
-    private static void checkUrl(boolean condition, String msgFmt, String... msgParams)
+    public static void checkUrl(boolean condition, String msgFmt, String... msgParams)
             throws InvalidURLException {
         if (!condition) {
             throw new InvalidURLException(String.format(msgFmt, (Object[]) msgParams));
@@ -136,7 +139,8 @@ public class HiveUrlUtils {
      * @param startIndex start of sessionConfs
      * @throws InvalidURLException
      */
-    private static Map<String, String> paramsToMap(String[] params, int startIndex) throws InvalidURLException {
+    private static Map<String, String> paramsToMap(String[] params, int startIndex)
+            throws InvalidURLException {
         Map<String, String> paramsMap = new LinkedHashMap<>();
         for (int i = startIndex; i < params.length; i++) {
             String paramPair = params[i];
@@ -153,18 +157,5 @@ public class HiveUrlUtils {
             paramsMap.put(field, value);
         }
         return paramsMap;
-    }
-
-    /**
-     * Format client passed in url that is accepted by Dataproc to be Hive acceptable format.
-     * jdbc:hive2://<host>:<port>/<dbName>;transportMode=http;httpPath=<http_endpoint>;<otherSessionConfs>?<hiveConfs>#<hiveVars>
-     *
-     * @param url verified url passed in by client, already of valid format
-     * @return formatted url in Hive format
-     * @throws IOException
-     * @throws InvalidURLException
-     */
-    public static String formatHiveUrl(String url) throws InvalidURLException {
-        return parseHiveUrl(url).toHiveJdbcUrl();
     }
 }

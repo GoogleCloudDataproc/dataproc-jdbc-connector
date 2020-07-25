@@ -25,6 +25,7 @@ version '1.0-SNAPSHOT'
 dependencies {
     compile project(path: ':hive', configuration: 'shadow')
     compile 'com.google.cloud:google-cloud-dataproc:1.0.0'
+    testImplementation 'org.mockito:mockito-core:3.4.0'
 }
 
 jar {

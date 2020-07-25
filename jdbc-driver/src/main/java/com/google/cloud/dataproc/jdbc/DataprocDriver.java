@@ -15,9 +15,12 @@
  */
 package com.google.cloud.dataproc.jdbc;
 
-import static com.google.cloud.dataproc.jdbc.HiveUrlUtils.formatHiveUrl;
+import static com.google.cloud.dataproc.jdbc.HiveUrlUtils.parseHiveUrl;
 
+import com.google.cloud.dataproc.v1beta2.ClusterControllerClient;
+import com.google.cloud.dataproc.v1beta2.ClusterControllerSettings;
 import com.google.common.annotations.VisibleForTesting;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverPropertyInfo;
@@ -25,11 +28,9 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
 /** DataprocDriver class to create connection with Hive. */
 public class DataprocDriver implements Driver {
-
     // Expected JDBC URL prefix format
     public static final String DATAPROC_JDBC_HIVE_URL_SCHEMA = "jdbc:dataproc://hive/";
 
@@ -84,10 +85,23 @@ public class DataprocDriver implements Driver {
         // jdbc:dataproc://<protocol>/<db>;clusterName=<>;other_sess_var_list?hive_conf_list#hive_var_list
 
         if (url.startsWith(DATAPROC_JDBC_HIVE_URL_SCHEMA)) {
+            HiveJdbcConnectionOptions params = parseHiveUrl(url);
+            String myEndpoint = String.format("%s-dataproc.googleapis.com:443", params.region());
             try {
-                String hiveURL = formatHiveUrl(url);
-            } catch (InvalidURLException e) {
-                throw new SQLException(e.getCause());
+                // Configure the settings for the cluster controller client.
+                ClusterControllerSettings clusterControllerSettings =
+                        ClusterControllerSettings.newBuilder().setEndpoint(myEndpoint).build();
+
+                ClusterControllerClient clusterControllerClient =
+                        ClusterControllerClient.create(clusterControllerSettings);
+
+                DataprocInfo clusterInfo = new DataprocInfo(params, clusterControllerClient);
+
+                String hiveURL = clusterInfo.toHiveJdbcUrl();
+
+                clusterInfo.closeClusterControllerClient();
+            } catch (IOException e) {
+                throw new SQLException(e);
             }
             // TODO: return HiveConnection
             return null;

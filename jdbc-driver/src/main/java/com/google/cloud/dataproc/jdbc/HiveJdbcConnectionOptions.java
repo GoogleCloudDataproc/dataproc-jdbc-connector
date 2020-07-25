@@ -24,12 +24,14 @@ import javax.annotation.Nullable;
 /** Helper class to extract Hive connection parameters */
 @AutoValue
 abstract class HiveJdbcConnectionOptions {
-    private static final String HIVE_PROTOCOL = "jdbc:hive2://";
+
     private static final String TRANSPORT_MODE = "http";
     private static final String HTTP_PATH = "cliservice";
 
     // These client side params are required by DataprocDriver
-    abstract String host();
+    abstract String projectId();
+
+    abstract String region();
 
     abstract String httpPath();
 
@@ -38,6 +40,12 @@ abstract class HiveJdbcConnectionOptions {
     abstract int port();
 
     abstract String dbName();
+
+    @Nullable
+    abstract String clusterName();
+
+    @Nullable
+    abstract String clusterPoolLabel();
 
     //  Do not parse these other parameters and pass them directly to HiveConnection
     @Nullable
@@ -61,27 +69,8 @@ abstract class HiveJdbcConnectionOptions {
                 .setHiveConfs(null);
     }
 
-    public String toHiveJdbcUrl() {
-        String hiveJdbcURL =
-                String.format(
-                        "%s%s:%d/%s;transportMode=%s;httpPath=%s",
-                        HIVE_PROTOCOL, host(), port(), dbName(), transportMode(), httpPath());
-        if (otherSessionConfs() != null) {
-            hiveJdbcURL = String.format("%s;%s", hiveJdbcURL, otherSessionConfs());
-        }
-        if (hiveConfs() != null) {
-            hiveJdbcURL = String.format("%s?%s", hiveJdbcURL, hiveConfs());
-        }
-        if (hiveVars() != null) {
-            hiveJdbcURL = String.format("%s#%s", hiveJdbcURL, hiveVars());
-        }
-        return hiveJdbcURL;
-    }
-
     @AutoValue.Builder
     abstract static class Builder {
-        abstract HiveJdbcConnectionOptions.Builder setHost(String value);
-
         abstract HiveJdbcConnectionOptions.Builder setPort(int value);
 
         abstract HiveJdbcConnectionOptions.Builder setDbName(String value);
@@ -95,6 +84,14 @@ abstract class HiveJdbcConnectionOptions {
         abstract HiveJdbcConnectionOptions.Builder setHiveConfs(String value);
 
         abstract HiveJdbcConnectionOptions.Builder setHiveVars(String value);
+
+        abstract HiveJdbcConnectionOptions.Builder setClusterName(String value);
+
+        abstract HiveJdbcConnectionOptions.Builder setClusterPoolLabel(String value);
+
+        abstract HiveJdbcConnectionOptions.Builder setProjectId(String value);
+
+        abstract HiveJdbcConnectionOptions.Builder setRegion(String value);
 
         abstract HiveJdbcConnectionOptions build();
     }

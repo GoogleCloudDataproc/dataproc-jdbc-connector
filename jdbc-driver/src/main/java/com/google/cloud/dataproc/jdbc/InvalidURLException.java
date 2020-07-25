@@ -22,4 +22,8 @@ public class InvalidURLException extends SQLException {
     public InvalidURLException(String errorMsg) {
         super(errorMsg);
     }
+
+    public InvalidURLException(String errorMsg, java.lang.Throwable cause) {
+        super(errorMsg, cause);
+    }
 }
