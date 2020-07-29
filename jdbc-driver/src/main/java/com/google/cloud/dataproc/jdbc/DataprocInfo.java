@@ -19,43 +19,76 @@ import static com.google.cloud.dataproc.jdbc.HiveUrlUtils.checkUrl;
 
 import com.google.api.gax.rpc.ApiException;
 import com.google.api.gax.rpc.StatusCode;
+import com.google.auth.oauth2.AccessToken;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.dataproc.v1beta2.Cluster;
 import com.google.cloud.dataproc.v1beta2.ClusterControllerClient;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
+import java.net.URI;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Helper class to get cluster info through Dataproc API. */
 public class DataprocInfo {
-    private static final String HIVE_PROTOCOL = "jdbc:hive2://";
+    private static final String HIVE_PROTOCOL = "jdbc:hive2";
+
     private final ClusterControllerClient clusterControllerClient;
     private final HiveJdbcConnectionOptions params;
+    private final GoogleCredentials credentials;
 
     // Constructor dependency injection
-    public DataprocInfo(HiveJdbcConnectionOptions params, ClusterControllerClient controller) {
+    public DataprocInfo(
+            HiveJdbcConnectionOptions params,
+            ClusterControllerClient controller,
+            GoogleCredentials credentials) {
         this.params = params;
         this.clusterControllerClient = controller;
+        this.credentials = credentials;
+    }
+
+    /**
+     * Gets the cached access token from client environment.
+     *
+     * @return the Bearer token
+     * @throws InvalidURLException
+     */
+    public String getAccessToken() throws InvalidURLException {
+        try {
+            credentials.refresh();
+        } catch (IOException e) {
+            throw new InvalidURLException("Unable to refresh access token.", e);
+        }
+        AccessToken accessToken = credentials.getAccessToken();
+        return accessToken.getTokenValue();
     }
 
     /**
      * Format client passed in url that is accepted by Dataproc to be Hive acceptable format.
      * jdbc:hive2://<host>:<port>/<dbName>;transportMode=http;httpPath=<http_endpoint>;<otherSessionConfs>?<hiveConfs>#<hiveVars>
      *
-     * @return the formatted URL that can be accepted by Hive
+     * @return the formatted JDBC URL accepted by Hive
      * @throws InvalidURLException
      */
     public String toHiveJdbcUrl() throws SQLException {
         String hiveJdbcURL =
-                String.format(
-                        "%s%s:%d/%s;transportMode=%s;httpPath=%s",
-                        HIVE_PROTOCOL,
-                        getHost(),
-                        params.port(),
-                        params.dbName(),
-                        params.transportMode(),
-                        params.httpPath());
+                String.format("%s://%s:%d/%s", HIVE_PROTOCOL, getHost(), params.port(), params.dbName());
+
+        ImmutableMap<String, String> urlMap =
+                ImmutableMap.<String, String>builder()
+                        .put("transportMode", params.transportMode())
+                        .put("httpPath", params.httpPath())
+                        .put("ssl", "true")
+                        .put("http.header.Proxy-Authorization", "Bearer%20" + getAccessToken())
+                        .build();
+
+        hiveJdbcURL =
+                String.format("%s;%s", hiveJdbcURL, Joiner.on(";").withKeyValueSeparator("=").join(urlMap));
+
         if (params.otherSessionConfs() != null) {
             hiveJdbcURL = String.format("%s;%s", hiveJdbcURL, params.otherSessionConfs());
         }
@@ -69,17 +102,39 @@ public class DataprocInfo {
     }
 
     /**
-     * Use Dataproc client libraries to get cluster.
+     * Uses Dataproc client libraries to get cluster.
      *
-     * @return name of the cluster's master node
+     * @return Endpoint url of the cluster's master node
      * @throws InvalidURLException
      */
     public String getHost() throws SQLException {
-        String host =
+        Cluster host =
                 params.clusterName() == null
                         ? findClusterInPool(formatClusterFilterString())
                         : getClusterByName();
-        return host + "-m";
+        return getHostEndPoint(host);
+    }
+
+    /**
+     * Retrieves the endpoint url of the cluster for Hive to connect to.
+     *
+     * @param host the host cluster
+     * @return the endpoint url of that cluster
+     * @throws InvalidURLException
+     */
+    public String getHostEndPoint(Cluster host) throws InvalidURLException {
+        Collection<String> httpPorts = host.getConfig().getEndpointConfig().getHttpPortsMap().values();
+        if (httpPorts.isEmpty()) {
+            throw new InvalidURLException("Unable to find cluster endpoint for Hive.");
+        }
+        // Example uri:
+        // https://uklx3owiy5bjlgps5cr72oppla-dot-us-central1.dataproc.googleusercontent.com/yarn/
+        URI uri =
+                URI.create(
+                        host.getConfig().getEndpointConfig().getHttpPortsMap().values().iterator().next());
+        // getHost() will return
+        // "uklx3owiy5bjlgps5cr72oppla-dot-us-central1.dataproc.googleusercontent.com"
+        return uri.getHost();
     }
 
     /**
@@ -88,12 +143,12 @@ public class DataprocInfo {
      * @return the cluster of the given name
      * @throws InvalidURLException
      */
-    public String getClusterByName() throws SQLException {
+    public Cluster getClusterByName() throws SQLException {
         try {
             Cluster cluster =
                     clusterControllerClient.getCluster(
                             params.projectId(), params.region(), params.clusterName());
-            return cluster.getClusterName();
+            return cluster;
         } catch (ApiException e) {
             if (e.getStatusCode().getCode().equals(StatusCode.Code.NOT_FOUND)) {
                 throw new InvalidURLException(
@@ -158,20 +213,20 @@ public class DataprocInfo {
      * Supports picking a cluster from cluster pool.
      *
      * @param filter formatted filter that matches the conditions client passed in
-     * @return name of the suitable cluster with cluster pool
+     * @return the suitable cluster with cluster pool
      * @throws IOException
      */
-    public String findClusterInPool(String filter) throws SQLException {
+    public Cluster findClusterInPool(String filter) throws SQLException {
         try {
-            String clusterName = null;
+            Cluster suitableCluster = null;
             for (Cluster response :
                     clusterControllerClient
                             .listClusters(params.projectId(), params.region(), filter)
                             .iterateAll()) {
                 // TODO: decide on how to pick a cluster among cluster pool
-                clusterName = response.getClusterName();
+                suitableCluster = response;
             }
-            return clusterName;
+            return suitableCluster;
         } catch (ApiException e) {
             if (e.getStatusCode().getCode().equals(StatusCode.Code.NOT_FOUND)) {
                 throw new InvalidURLException(

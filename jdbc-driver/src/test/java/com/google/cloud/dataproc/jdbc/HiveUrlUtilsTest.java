@@ -21,7 +21,6 @@ import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 
 public class HiveUrlUtilsTest {
-    private final int PORT = 10003;
     private final String DB_NAME = "db-name";
     private final String CLUSTER_NAME = "simple-cluster";
     private final String PROJECT_ID = "pid";
@@ -86,9 +85,9 @@ public class HiveUrlUtilsTest {
     }
 
     @Test
-    public void parseHiveUrl_simpleWithDbAndPort() throws InvalidURLException {
+    public void parseHiveUrl_simpleWithDb() throws InvalidURLException {
         String simpleUrlWithDbAndPort =
-                "jdbc:dataproc://hive/db-name;port=10003;projectId=pid;region=us-central1;clusterName=simple-cluster";
+                "jdbc:dataproc://hive/db-name;projectId=pid;region=us-central1;clusterName=simple-cluster";
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(simpleUrlWithDbAndPort);
         assertThat(param)
                 .isEqualTo(
@@ -97,14 +96,24 @@ public class HiveUrlUtilsTest {
                                 .setRegion(REGION)
                                 .setClusterName(CLUSTER_NAME)
                                 .setDbName(DB_NAME)
-                                .setPort(PORT)
                                 .build());
+    }
+
+    @Test
+    public void parseHiveUrl_simpleWithDbAndPort_inCorrect() throws InvalidURLException {
+        String simpleUrlWithDbAndPort =
+                "jdbc:dataproc://hive/db-name;port=10003;projectId=pid;region=us-central1;clusterName=simple-cluster";
+        Assertions.assertThrows(
+                InvalidURLException.class,
+                () -> {
+                    HiveUrlUtils.parseHiveUrl(simpleUrlWithDbAndPort);
+                });
     }
 
     @Test
     public void parseHiveUrl_longWithOtherSessionConfs() throws InvalidURLException {
         String longUrlWithOtherSessionConfs =
-                "jdbc:dataproc://hive/db-name;port=10003;projectId=pid;region=us-central1;clusterName=simple-cluster;user=foo;password=bar";
+                "jdbc:dataproc://hive/db-name;projectId=pid;region=us-central1;clusterName=simple-cluster;user=foo;password=bar";
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(longUrlWithOtherSessionConfs);
         assertThat(param)
                 .isEqualTo(
@@ -113,7 +122,6 @@ public class HiveUrlUtilsTest {
                                 .setRegion(REGION)
                                 .setClusterName(CLUSTER_NAME)
                                 .setDbName(DB_NAME)
-                                .setPort(PORT)
                                 .setOtherSessionConfs("user=foo;password=bar")
                                 .build());
     }
@@ -135,7 +143,7 @@ public class HiveUrlUtilsTest {
     @Test
     public void parseHiveUrl_longWithHiveConfs() throws InvalidURLException {
         String longUrlWithHiveConfs =
-                "jdbc:dataproc://hive/db-name;port=10003;projectId=pid;region=us-central1;clusterName=simple-cluster?hive.support.concurrency=true";
+                "jdbc:dataproc://hive/db-name;projectId=pid;region=us-central1;clusterName=simple-cluster?hive.support.concurrency=true";
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(longUrlWithHiveConfs);
         assertThat(param)
                 .isEqualTo(
@@ -144,7 +152,6 @@ public class HiveUrlUtilsTest {
                                 .setRegion(REGION)
                                 .setClusterName(CLUSTER_NAME)
                                 .setDbName(DB_NAME)
-                                .setPort(PORT)
                                 .setHiveConfs("hive.support.concurrency=true")
                                 .build());
     }
@@ -152,7 +159,7 @@ public class HiveUrlUtilsTest {
     @Test
     public void parseHiveUrl_longWithHiveVars() throws InvalidURLException {
         String longUrlWithHiveVars =
-                "jdbc:dataproc://hive/db-name;port=10003;projectId=pid;region=us-central1;clusterName=simple-cluster#a=123";
+                "jdbc:dataproc://hive/db-name;projectId=pid;region=us-central1;clusterName=simple-cluster#a=123";
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(longUrlWithHiveVars);
         assertThat(param)
                 .isEqualTo(
@@ -161,7 +168,6 @@ public class HiveUrlUtilsTest {
                                 .setRegion(REGION)
                                 .setClusterName(CLUSTER_NAME)
                                 .setDbName(DB_NAME)
-                                .setPort(PORT)
                                 .setHiveVars("a=123")
                                 .build());
     }
@@ -169,7 +175,7 @@ public class HiveUrlUtilsTest {
     @Test
     public void parseHiveUrl_longComplete() throws InvalidURLException {
         String longUrlComplete =
-                "jdbc:dataproc://hive/db-name;port=10003;projectId=pid;region=us-central1;clusterName=simple-cluster;user=foo;password=bar?hive.support.concurrency=true#a=123";
+                "jdbc:dataproc://hive/db-name;projectId=pid;region=us-central1;clusterName=simple-cluster;user=foo;password=bar?hive.support.concurrency=true#a=123";
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(longUrlComplete);
         assertThat(param)
                 .isEqualTo(
@@ -178,7 +184,6 @@ public class HiveUrlUtilsTest {
                                 .setRegion(REGION)
                                 .setClusterName(CLUSTER_NAME)
                                 .setDbName(DB_NAME)
-                                .setPort(PORT)
                                 .setOtherSessionConfs("user=foo;password=bar")
                                 .setHiveConfs("hive.support.concurrency=true")
                                 .setHiveVars("a=123")
@@ -188,7 +193,7 @@ public class HiveUrlUtilsTest {
     @Test
     public void parseHiveUrl_longCompleteWithLabel() throws InvalidURLException {
         String longUrlWithLabel =
-                "jdbc:dataproc://hive/db-name;port=10003;projectId=pid;region=us-central1;clusterPoolLabel=com=google:group=test;user=foo;password=bar?hive.support.concurrency=true#a=123";
+                "jdbc:dataproc://hive/db-name;projectId=pid;region=us-central1;clusterPoolLabel=com=google:group=test;user=foo;password=bar?hive.support.concurrency=true#a=123";
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(longUrlWithLabel);
         assertThat(param)
                 .isEqualTo(
@@ -197,7 +202,6 @@ public class HiveUrlUtilsTest {
                                 .setRegion(REGION)
                                 .setClusterPoolLabel("com=google:group=test")
                                 .setDbName(DB_NAME)
-                                .setPort(PORT)
                                 .setOtherSessionConfs("user=foo;password=bar")
                                 .setHiveConfs("hive.support.concurrency=true")
                                 .setHiveVars("a=123")
@@ -207,7 +211,7 @@ public class HiveUrlUtilsTest {
     @Test
     public void parseHiveUrl_longInComplete() {
         String simpleUrlIncomplete =
-                "jdbc:dataproc://hive/db-name;port=10003;user=hive?hive.support.concurrency=true#a=123";
+                "jdbc:dataproc://hive/db-name;user=hive?hive.support.concurrency=true#a=123";
         Assertions.assertThrows(
                 InvalidURLException.class,
                 () -> {

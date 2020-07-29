@@ -51,15 +51,3 @@ jar {
     // Include service files from the buildDir.
     from fileTree(buildDir).matching{ include 'META-INF/services/java.sql.Driver' }
 }
-
-publishing {
-    publications {
-        maven(MavenPublication) {
-            groupId = 'com.google.cloud.dataproc'
-            artifactId = 'dataproc-jdbc-connector'
-            version = '1.0-SNAPSHOT'
-
-            from components.java
-        }
-    }
-}

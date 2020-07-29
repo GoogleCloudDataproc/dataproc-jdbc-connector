@@ -18,13 +18,15 @@ package com.google.cloud.dataproc.jdbc;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.net.URI;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Helper methods to establish Connection for DataprocDriver. */
 public class HiveUrlUtils {
     public static final String HIVE_DEFAULT_DATABASE = "";
-    public static final int HIVE_DEFAULT_PORT = 10001;
+    public static final int HIVE_DEFAULT_PORT = 443;
     public static final String URL_JDBC_PREFIX = "jdbc:";
 
     private static Set<String> NON_SESSION_CONFS =
@@ -94,6 +96,10 @@ public class HiveUrlUtils {
         checkUrl(
                 !paramsMap.containsKey("transportMode"),
                 "Invalid variable.\nPlease do not include transportMode.");
+        checkUrl(
+                !paramsMap.containsKey("port"),
+                "'port=%s'\nPlease indicate correct port number or remove the field.",
+                paramsMap.get("port"));
 
         // Client must specify projectId and region
         checkUrl(paramsMap.containsKey("projectId"), "Please provide projectId.");
@@ -103,16 +109,6 @@ public class HiveUrlUtils {
                 .setProjectId(paramsMap.get("projectId"))
                 .setClusterName(paramsMap.get("clusterName"))
                 .setClusterPoolLabel(paramsMap.get("clusterPoolLabel"));
-
-        try {
-            int port = Integer.valueOf(paramsMap.getOrDefault("port", String.valueOf(HIVE_DEFAULT_PORT)));
-            paramBuilder.setPort(port);
-        } catch (NumberFormatException e) {
-            throw new InvalidURLException(
-                    String.format(
-                            "'port=%s' Please indicate correct port number or remove the field.",
-                            paramsMap.get("port")));
-        }
 
         return paramBuilder.build();
     }
