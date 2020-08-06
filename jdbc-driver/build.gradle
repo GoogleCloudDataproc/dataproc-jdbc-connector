@@ -30,7 +30,6 @@ dependencies {
 
 jar {
     zip64 = true
-
     from(configurations.runtime.collect{ it.isDirectory() ? it : zipTree(it) }) {
         exclude 'META-INF/services/java.sql.Driver' // Don't let Gradle merge service files
     }
@@ -52,5 +51,33 @@ publishing {
 
             from components.java
         }
+    }
+}
+
+sourceSets {
+    systemTest {
+        java {
+            compileClasspath += main.output + test.output
+            runtimeClasspath += main.output + test.output
+            srcDir file('src/systemTest/java')
+        }
+        resources.srcDir file('src/systemTest/resources')
+    }
+}
+
+configurations {
+    systemTestImplementation.extendsFrom testImplementation
+    systemTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+task systemTest(type: Test) {
+    testClassesDirs = sourceSets.systemTest.output.classesDirs
+    classpath = sourceSets.systemTest.runtimeClasspath
+}
+
+systemTest {
+    systemProperties(System.getProperties())
+    testLogging {
+        events = ["standard_out"]
     }
 }

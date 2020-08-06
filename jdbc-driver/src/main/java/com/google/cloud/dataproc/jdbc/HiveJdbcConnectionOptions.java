@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 abstract class HiveJdbcConnectionOptions {
 
     private static final String TRANSPORT_MODE = "http";
-    private static final String HTTP_PATH = "cliservice";
+    private static final String HTTP_PATH = "hive";
 
     // These client side params are required by DataprocDriver
     abstract String projectId();

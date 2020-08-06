@@ -24,14 +24,24 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
+import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
+import org.apache.hive.jdbc.shaded.org.apache.hive.jdbc.HiveConnection;
 
 /** DataprocDriver class to create connection with Hive. */
 public class DataprocDriver implements Driver {
+    static {
+        try {
+            DriverManager.registerDriver(new DataprocDriver());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     // Expected JDBC URL prefix format
     public static final String DATAPROC_JDBC_HIVE_URL_SCHEMA = "jdbc:dataproc://hive/";
 
@@ -102,13 +112,12 @@ public class DataprocDriver implements Driver {
                 DataprocInfo clusterInfo = new DataprocInfo(params, clusterControllerClient, credentials);
 
                 String hiveURL = clusterInfo.toHiveJdbcUrl();
-
                 clusterInfo.closeClusterControllerClient();
+                return new HiveConnection(hiveURL, info);
             } catch (IOException e) {
                 throw new SQLException(e);
             }
             // TODO: return HiveConnection
-            return null;
         } else {
             // TODO: support other protocol
             return null;

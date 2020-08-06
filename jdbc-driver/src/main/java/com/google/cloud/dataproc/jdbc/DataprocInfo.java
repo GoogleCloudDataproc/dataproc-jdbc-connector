@@ -226,6 +226,12 @@ public class DataprocInfo {
                 // TODO: decide on how to pick a cluster among cluster pool
                 suitableCluster = response;
             }
+            if (suitableCluster == null) {
+                throw new InvalidURLException(
+                        String.format(
+                                "Unable to find active clusters matching label %s in %s/%s.\n",
+                                filter, params.projectId(), params.region()));
+            }
             return suitableCluster;
         } catch (ApiException e) {
             if (e.getStatusCode().getCode().equals(StatusCode.Code.NOT_FOUND)) {

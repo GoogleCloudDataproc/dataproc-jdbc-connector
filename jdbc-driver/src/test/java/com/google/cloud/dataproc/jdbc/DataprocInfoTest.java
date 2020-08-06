@@ -293,7 +293,7 @@ public class DataprocInfoTest {
                 "jdbc:dataproc://hive/;projectId=pid;region=us-central1;clusterName=simple-cluster1";
         String hiveUrl =
                 String.format(
-                        "jdbc:hive2://%s:%d/;transportMode=http;httpPath=cliservice;%s%s",
+                        "jdbc:hive2://%s:%d/;transportMode=http;httpPath=hive;%s%s",
                         HOST_1, PORT, AUTHORIZATION, TOKEN_VALUE);
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(simpleUrl);
         DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
@@ -306,7 +306,7 @@ public class DataprocInfoTest {
                 "jdbc:dataproc://hive/;projectId=pid;region=us-central1;clusterPoolLabel=com=google:env=staging:team=dataproc";
         String hiveUrl =
                 String.format(
-                        "jdbc:hive2://%s:%d/;transportMode=http;httpPath=cliservice;%s%s",
+                        "jdbc:hive2://%s:%d/;transportMode=http;httpPath=hive;%s%s",
                         HOST_1, PORT, AUTHORIZATION, TOKEN_VALUE);
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(simpleUrl);
         DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
@@ -319,7 +319,7 @@ public class DataprocInfoTest {
                 "jdbc:dataproc://hive/db-name;projectId=pid;region=us-central1;clusterName=simple-cluster2;user=foo;password=bar?hive.support.concurrency=true#a=123";
         String hiveUrl =
                 String.format(
-                        "jdbc:hive2://%s:%d/db-name;transportMode=http;httpPath=cliservice;%s%s;user=foo;password=bar?hive.support.concurrency=true#a=123",
+                        "jdbc:hive2://%s:%d/db-name;transportMode=http;httpPath=hive;%s%s;user=foo;password=bar?hive.support.concurrency=true#a=123",
                         HOST_2, PORT, AUTHORIZATION, TOKEN_VALUE);
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(longUrlComplete);
         DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
@@ -332,7 +332,7 @@ public class DataprocInfoTest {
                 "jdbc:dataproc://hive/db-name;projectId=pid;region=us-central1;clusterPoolLabel=com=google:env=staging:team=dataproc;user=foo;password=bar?hive.support.concurrency=true#a=123";
         String hiveUrl =
                 String.format(
-                        "jdbc:hive2://%s:%d/db-name;transportMode=http;httpPath=cliservice;%s%s;user=foo;password=bar?hive.support.concurrency=true#a=123",
+                        "jdbc:hive2://%s:%d/db-name;transportMode=http;httpPath=hive;%s%s;user=foo;password=bar?hive.support.concurrency=true#a=123",
                         HOST_1, PORT, AUTHORIZATION, TOKEN_VALUE);
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(longUrlComplete);
         DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
