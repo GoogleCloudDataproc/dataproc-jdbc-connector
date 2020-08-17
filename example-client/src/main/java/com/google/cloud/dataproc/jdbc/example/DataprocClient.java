@@ -18,6 +18,7 @@ package com.google.cloud.dataproc.jdbc.example;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
@@ -85,8 +86,14 @@ public class DataprocClient {
             }
             System.out.println("\nRunning: " + sql);
             res = stmt.executeQuery(sql);
+            ResultSetMetaData rsmd = res.getMetaData();
+            int columnsNumber = rsmd.getColumnCount();
             if (res.next()) {
-                System.out.println(res.getInt(1));
+                for (int i = 1; i <= columnsNumber; i++) {
+                    if (i > 1) System.out.print(",  ");
+                    String columnValue = res.getString(i);
+                    System.out.print(columnValue + " " + rsmd.getColumnName(i));
+                }
                 System.out.println();
             }
             System.out.println("\nDo you want to execute another query? [y/n]");
