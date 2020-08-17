@@ -1,0 +1,49 @@
+/*
+ * Copyright 2020 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+plugins {
+    id 'java'
+    id 'maven-publish'
+    id 'com.github.johnrengelman.shadow' version '6.0.0'
+}
+
+group 'com.google.cloud.dataproc'
+version '1.0-SNAPSHOT'
+
+dependencies {
+//    compile project(path: ':hive', configuration: 'shadow')
+    compile project(path: ':jdbc-driver', configuration: 'shadow')
+}
+
+jar {
+    zip64=true
+    manifest {
+        attributes["Main-Class"] = "com.google.cloud.dataproc.jdbc.example.DataprocClient"
+    }
+
+    from(configurations.runtime.collect{ it.isDirectory() ? it : zipTree(it) }) {
+        exclude 'META-INF/log4j-provider.properties' // Don't let Gradle merge service files
+    }
+
+    // Include service files from the buildDir for the client to use the shaded log4j.
+    from fileTree(buildDir).matching{ include 'META-INF/log4j-provider.properties' }
+}
+
+import com.github.jengelman.gradle.plugins.shadow.transformers.Log4j2PluginsCacheFileTransformer
+
+shadowJar {
+    zip64=true
+    transform(Log4j2PluginsCacheFileTransformer)
+}

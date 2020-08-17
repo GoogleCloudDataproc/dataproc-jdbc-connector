@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import com.github.jengelman.gradle.plugins.shadow.transformers.Log4j2PluginsCacheFileTransformer
+
 plugins {
     id 'java'
     id 'maven-publish'
@@ -35,11 +37,18 @@ jar {
     }
 
     // Include service files from the buildDir.
-    from fileTree(buildDir).matching{ include 'META-INF/services/java.sql.Driver' }
+    from fileTree(buildDir).matching{
+        include 'META-INF/services/java.sql.Driver'
+    }
 }
+
 
 shadowJar {
     zip64 = true
+    transform(Log4j2PluginsCacheFileTransformer)
+    relocate('com.google', 'com.google.cloud.dataproc.jdbc.shaded.com.google') {
+        exclude 'com.google.cloud.dataproc.jdbc.*'
+    }
 }
 
 publishing {
