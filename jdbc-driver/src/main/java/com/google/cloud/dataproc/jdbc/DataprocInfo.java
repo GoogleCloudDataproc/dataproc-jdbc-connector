@@ -19,8 +19,6 @@ import static com.google.cloud.dataproc.jdbc.HiveUrlUtils.checkUrl;
 
 import com.google.api.gax.rpc.ApiException;
 import com.google.api.gax.rpc.StatusCode;
-import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.dataproc.v1beta2.Cluster;
 import com.google.cloud.dataproc.v1beta2.ClusterControllerClient;
 import com.google.common.base.Joiner;
@@ -35,36 +33,19 @@ import java.util.stream.Collectors;
 
 /** Helper class to get cluster info through Dataproc API. */
 public class DataprocInfo {
+    public static final String HTTP_INTERCEPTOR = "http.interceptor";
+    public static final String DATAPROC_INTERCEPTOR =
+            "com.google.cloud.dataproc.jdbc.DataprocCGAuthInterceptor";
+
     private static final String HIVE_PROTOCOL = "jdbc:hive2";
 
     private final ClusterControllerClient clusterControllerClient;
     private final HiveJdbcConnectionOptions params;
-    private final GoogleCredentials credentials;
 
     // Constructor dependency injection
-    public DataprocInfo(
-            HiveJdbcConnectionOptions params,
-            ClusterControllerClient controller,
-            GoogleCredentials credentials) {
+    public DataprocInfo(HiveJdbcConnectionOptions params, ClusterControllerClient controller) {
         this.params = params;
         this.clusterControllerClient = controller;
-        this.credentials = credentials;
-    }
-
-    /**
-     * Gets the cached access token from client environment.
-     *
-     * @return the Bearer token
-     * @throws InvalidURLException
-     */
-    public String getAccessToken() throws InvalidURLException {
-        try {
-            credentials.refresh();
-        } catch (IOException e) {
-            throw new InvalidURLException("Unable to refresh access token.", e);
-        }
-        AccessToken accessToken = credentials.getAccessToken();
-        return accessToken.getTokenValue();
     }
 
     /**
@@ -83,7 +64,7 @@ public class DataprocInfo {
                         .put("transportMode", params.transportMode())
                         .put("httpPath", params.httpPath())
                         .put("ssl", "true")
-                        .put("http.header.Proxy-Authorization", "Bearer%20" + getAccessToken())
+                        .put(HTTP_INTERCEPTOR, DATAPROC_INTERCEPTOR)
                         .build();
 
         hiveJdbcURL =

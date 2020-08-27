@@ -16,25 +16,19 @@
 package com.google.cloud.dataproc.jdbc;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.api.gax.rpc.ApiException;
 import com.google.api.gax.rpc.StatusCode;
-import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.dataproc.v1beta2.Cluster;
 import com.google.cloud.dataproc.v1beta2.ClusterConfig;
 import com.google.cloud.dataproc.v1beta2.ClusterControllerClient;
 import com.google.cloud.dataproc.v1beta2.ClusterStatus;
 import com.google.cloud.dataproc.v1beta2.EndpointConfig;
 import com.google.common.collect.ImmutableMap;
-
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Collections;
-import java.util.Date;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -60,15 +54,11 @@ public class DataprocInfoTest {
     private final String HOST_2 =
             "xgqoq4dqbja2jlqz7dltjhxoka-dot-dataproc-test.googleusercontent.com";
 
-    private final String TOKEN_VALUE =
-            "application-default-access-token";
+    private final String TOKEN_VALUE = "application-default-access-token";
     private static final long HOUR = 3600 * 1000;
     private static final String AUTHORIZATION = "ssl=true;http.header.Proxy-Authorization=Bearer%20";
 
     private HiveJdbcConnectionOptions.Builder paramBuilder;
-
-    // Mock GoogleCredentials
-    private GoogleCredentials mockCredentials;
 
     // Mock CluterControllerClient
     private ClusterControllerClient mockClusterControllerClient;
@@ -83,8 +73,6 @@ public class DataprocInfoTest {
 
     @Before
     public void setUp() {
-        mockCredentials = mock(GoogleCredentials.class);
-
         mockClusterControllerClient = mock(ClusterControllerClient.class);
         mockListDefault = mock(ClusterControllerClient.ListClustersPagedResponse.class);
         mockListDefaultDup = mock(ClusterControllerClient.ListClustersPagedResponse.class);
@@ -121,9 +109,6 @@ public class DataprocInfoTest {
                         .setConfig(config2)
                         .setStatus(ClusterStatus.newBuilder().setState(ClusterStatus.State.RUNNING).build())
                         .build();
-
-        when(mockCredentials.getAccessToken())
-                .thenReturn(new AccessToken(TOKEN_VALUE, new Date(System.currentTimeMillis() + HOUR)));
 
         when(mockListDefault.iterateAll())
                 .thenReturn(Collections.singleton(cluster2))
@@ -166,7 +151,7 @@ public class DataprocInfoTest {
     public void formatClusterFilterString_noFilter_isCorrect() throws InvalidURLException {
         String clusterPoolLabel = null;
         HiveJdbcConnectionOptions param = paramBuilder.setClusterPoolLabel(clusterPoolLabel).build();
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         assertThat(infoTest.formatClusterFilterString()).isEqualTo(FILTER_DEFAULT);
     }
 
@@ -174,7 +159,7 @@ public class DataprocInfoTest {
     public void formatClusterFilterString_longFilter() throws InvalidURLException {
         String clusterPoolLabel = "com=google:env=staging:team=dataproc";
         HiveJdbcConnectionOptions param = paramBuilder.setClusterPoolLabel(clusterPoolLabel).build();
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         assertThat(infoTest.formatClusterFilterString()).isEqualTo(FILTER_LONG);
     }
 
@@ -182,7 +167,7 @@ public class DataprocInfoTest {
     public void formatClusterFilterString_duplicateStatusFilter_inCorrect() {
         String clusterPoolLabel = "status.state=ACTIVE";
         HiveJdbcConnectionOptions param = paramBuilder.setClusterPoolLabel(clusterPoolLabel).build();
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         Assertions.assertThrows(
                 InvalidURLException.class,
                 () -> {
@@ -194,7 +179,7 @@ public class DataprocInfoTest {
     public void formatClusterFilterString_invalidLabel_inCorrect() {
         String clusterPoolLabel = "com=google:foo:env=staging";
         HiveJdbcConnectionOptions param = paramBuilder.setClusterPoolLabel(clusterPoolLabel).build();
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         Assertions.assertThrows(
                 InvalidURLException.class,
                 () -> {
@@ -206,7 +191,7 @@ public class DataprocInfoTest {
     public void formatClusterFilterString_duplicateLabelKey_inCorrect() {
         String clusterPoolLabel = "com=google:env=staging:com=random";
         HiveJdbcConnectionOptions param = paramBuilder.setClusterPoolLabel(clusterPoolLabel).build();
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         Assertions.assertThrows(
                 InvalidURLException.class,
                 () -> {
@@ -218,7 +203,7 @@ public class DataprocInfoTest {
     public void formatClusterFilterString_wrongFilter_inCorrect() {
         String clusterPoolLabel = "com&google";
         HiveJdbcConnectionOptions param = paramBuilder.setClusterPoolLabel(clusterPoolLabel).build();
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         Assertions.assertThrows(
                 InvalidURLException.class,
                 () -> {
@@ -229,14 +214,14 @@ public class DataprocInfoTest {
     @Test
     public void getHost_clusterName() throws SQLException {
         HiveJdbcConnectionOptions param = paramBuilder.setClusterName(CLUSTER_NAME_1).build();
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         assertThat(infoTest.getHost()).isEqualTo(HOST_1);
     }
 
     @Test
     public void getHost_noClusterFoundByName() {
         HiveJdbcConnectionOptions param = paramBuilder.setClusterName(NO_CLUSTER_NAME).build();
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         Assertions.assertThrows(
                 InvalidURLException.class,
                 () -> {
@@ -248,7 +233,7 @@ public class DataprocInfoTest {
     public void getHost_defaultLabel() throws SQLException {
         String clusterPoolLabel = null;
         HiveJdbcConnectionOptions param = paramBuilder.setClusterPoolLabel(clusterPoolLabel).build();
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         assertThat(infoTest.getHost()).isEqualTo(HOST_2);
     }
 
@@ -256,7 +241,7 @@ public class DataprocInfoTest {
     public void getHost_simpleClusterLabel() throws SQLException {
         String clusterPoolLabel = "clusterName=simple-cluster1";
         HiveJdbcConnectionOptions param = paramBuilder.setClusterPoolLabel(clusterPoolLabel).build();
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         assertThat(infoTest.getHost()).isEqualTo(HOST_1);
     }
 
@@ -264,27 +249,8 @@ public class DataprocInfoTest {
     public void getHost_longClusterLabel() throws SQLException {
         String clusterPoolLabel = "com=google:env=staging:team=dataproc";
         HiveJdbcConnectionOptions param = paramBuilder.setClusterPoolLabel(clusterPoolLabel).build();
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         assertThat(infoTest.getHost()).isEqualTo(HOST_1);
-    }
-
-    @Test
-    public void getAccessToken_simple() throws InvalidURLException {
-        DataprocInfo infoTest =
-                new DataprocInfo(paramBuilder.build(), mockClusterControllerClient, mockCredentials);
-        assertThat(infoTest.getAccessToken()).isEqualTo(TOKEN_VALUE);
-    }
-
-    @Test
-    public void getToken_refreshCredentials_failed() throws IOException {
-        DataprocInfo infoTest =
-                new DataprocInfo(paramBuilder.build(), mockClusterControllerClient, mockCredentials);
-        doThrow(IOException.class).when(mockCredentials).refresh();
-        Assertions.assertThrows(
-                InvalidURLException.class,
-                () -> {
-                    infoTest.getAccessToken();
-                });
     }
 
     @Test
@@ -293,10 +259,10 @@ public class DataprocInfoTest {
                 "jdbc:dataproc://hive/;projectId=pid;region=us-central1;clusterName=simple-cluster1";
         String hiveUrl =
                 String.format(
-                        "jdbc:hive2://%s:%d/;transportMode=http;httpPath=hive;%s%s",
-                        HOST_1, PORT, AUTHORIZATION, TOKEN_VALUE);
+                        "jdbc:hive2://%s:%d/;transportMode=http;httpPath=hive;ssl=true;http.interceptor=com.google.cloud.dataproc.jdbc.DataprocCGAuthInterceptor",
+                        HOST_1, PORT);
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(simpleUrl);
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         assertThat(infoTest.toHiveJdbcUrl()).isEqualTo(hiveUrl);
     }
 
@@ -306,10 +272,10 @@ public class DataprocInfoTest {
                 "jdbc:dataproc://hive/;projectId=pid;region=us-central1;clusterPoolLabel=com=google:env=staging:team=dataproc";
         String hiveUrl =
                 String.format(
-                        "jdbc:hive2://%s:%d/;transportMode=http;httpPath=hive;%s%s",
-                        HOST_1, PORT, AUTHORIZATION, TOKEN_VALUE);
+                        "jdbc:hive2://%s:%d/;transportMode=http;httpPath=hive;ssl=true;http.interceptor=com.google.cloud.dataproc.jdbc.DataprocCGAuthInterceptor",
+                        HOST_1, PORT);
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(simpleUrl);
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         assertThat(infoTest.toHiveJdbcUrl()).isEqualTo(hiveUrl);
     }
 
@@ -319,10 +285,10 @@ public class DataprocInfoTest {
                 "jdbc:dataproc://hive/db-name;projectId=pid;region=us-central1;clusterName=simple-cluster2;user=foo;password=bar?hive.support.concurrency=true#a=123";
         String hiveUrl =
                 String.format(
-                        "jdbc:hive2://%s:%d/db-name;transportMode=http;httpPath=hive;%s%s;user=foo;password=bar?hive.support.concurrency=true#a=123",
-                        HOST_2, PORT, AUTHORIZATION, TOKEN_VALUE);
+                        "jdbc:hive2://%s:%d/db-name;transportMode=http;httpPath=hive;ssl=true;http.interceptor=com.google.cloud.dataproc.jdbc.DataprocCGAuthInterceptor;user=foo;password=bar?hive.support.concurrency=true#a=123",
+                        HOST_2, PORT);
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(longUrlComplete);
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         assertThat(infoTest.toHiveJdbcUrl()).isEqualTo(hiveUrl);
     }
 
@@ -332,10 +298,10 @@ public class DataprocInfoTest {
                 "jdbc:dataproc://hive/db-name;projectId=pid;region=us-central1;clusterPoolLabel=com=google:env=staging:team=dataproc;user=foo;password=bar?hive.support.concurrency=true#a=123";
         String hiveUrl =
                 String.format(
-                        "jdbc:hive2://%s:%d/db-name;transportMode=http;httpPath=hive;%s%s;user=foo;password=bar?hive.support.concurrency=true#a=123",
-                        HOST_1, PORT, AUTHORIZATION, TOKEN_VALUE);
+                        "jdbc:hive2://%s:%d/db-name;transportMode=http;httpPath=hive;ssl=true;http.interceptor=com.google.cloud.dataproc.jdbc.DataprocCGAuthInterceptor;user=foo;password=bar?hive.support.concurrency=true#a=123",
+                        HOST_1, PORT);
         HiveJdbcConnectionOptions param = HiveUrlUtils.parseHiveUrl(longUrlComplete);
-        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient, mockCredentials);
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         assertThat(infoTest.toHiveJdbcUrl()).isEqualTo(hiveUrl);
     }
 }

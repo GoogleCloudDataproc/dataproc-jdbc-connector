@@ -17,7 +17,6 @@ package com.google.cloud.dataproc.jdbc;
 
 import static com.google.cloud.dataproc.jdbc.HiveUrlUtils.parseHiveUrl;
 
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.dataproc.v1beta2.ClusterControllerClient;
 import com.google.cloud.dataproc.v1beta2.ClusterControllerSettings;
 import com.google.common.annotations.VisibleForTesting;
@@ -106,10 +105,7 @@ public class DataprocDriver implements Driver {
                 ClusterControllerClient clusterControllerClient =
                         ClusterControllerClient.create(clusterControllerSettings);
 
-                GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
-                credentials = credentials.createScoped("https://www.googleapis.com/auth/cloud-platform");
-
-                DataprocInfo clusterInfo = new DataprocInfo(params, clusterControllerClient, credentials);
+                DataprocInfo clusterInfo = new DataprocInfo(params, clusterControllerClient);
 
                 String hiveURL = clusterInfo.toHiveJdbcUrl();
                 clusterInfo.closeClusterControllerClient();
@@ -117,7 +113,6 @@ public class DataprocDriver implements Driver {
             } catch (IOException e) {
                 throw new SQLException(e);
             }
-            // TODO: return HiveConnection
         } else {
             // TODO: support other protocol
             return null;
