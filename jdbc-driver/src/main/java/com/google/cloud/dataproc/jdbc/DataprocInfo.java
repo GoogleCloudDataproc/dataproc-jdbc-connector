@@ -26,10 +26,17 @@ import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** Helper class to get cluster info through Dataproc API. */
 public class DataprocInfo {
@@ -38,6 +45,8 @@ public class DataprocInfo {
             "com.google.cloud.dataproc.jdbc.DataprocCGAuthInterceptor";
 
     private static final String HIVE_PROTOCOL = "jdbc:hive2";
+
+    private static final String YARN_MEMORY = "yarn-memory-mb-available";
 
     private final ClusterControllerClient clusterControllerClient;
     private final HiveJdbcConnectionOptions params;
@@ -199,21 +208,31 @@ public class DataprocInfo {
      */
     public Cluster findClusterInPool(String filter) throws SQLException {
         try {
-            Cluster suitableCluster = null;
+            Map<Cluster, Long> clusterLoads = new HashMap<>();
+            List<Cluster> allClusters = new ArrayList<>();
             for (Cluster response :
                     clusterControllerClient
                             .listClusters(params.projectId(), params.region(), filter)
                             .iterateAll()) {
-                // TODO: decide on how to pick a cluster among cluster pool
-                suitableCluster = response;
+                if (response.hasMetrics()
+                        && response.getMetrics().getYarnMetricsOrDefault(YARN_MEMORY, 0) != 0) {
+                    // Do not put cluster with 0 memory available memory into the map to avoid divided by 0
+                    clusterLoads.put(response, response.getMetrics().getYarnMetricsMap().get(YARN_MEMORY));
+                }
+                allClusters.add(response);
             }
-            if (suitableCluster == null) {
+
+            if (allClusters.size() == 0) {
                 throw new InvalidURLException(
                         String.format(
                                 "Unable to find active clusters matching label %s in %s/%s.\n",
                                 filter, params.projectId(), params.region()));
             }
-            return suitableCluster;
+
+            Random random = new Random();
+            return clusterLoads.isEmpty() // empty if no cluster has yarn memory available
+                    ? allClusters.get(random.nextInt(allClusters.size())) // randomly pick a cluster
+                    : pickCluster(clusterLoads.entrySet().stream(), random);
         } catch (ApiException e) {
             if (e.getStatusCode().getCode().equals(StatusCode.Code.NOT_FOUND)) {
                 throw new InvalidURLException(
@@ -224,6 +243,23 @@ public class DataprocInfo {
             }
             throw new SQLException(e);
         }
+    }
+
+    /**
+     * Random weighted selection of a cluster based on clusters' available yarn memory.
+     *
+     * @param clusterLoads map from cluster to the available yarn memory of that cluster
+     * @return the selected cluster
+     */
+    public static Cluster pickCluster(Stream<Map.Entry<Cluster, Long>> clusterLoads, Random random) {
+        return clusterLoads
+                .map(
+                        e ->
+                                new AbstractMap.SimpleEntry<>(
+                                        e.getKey(), -Math.log(random.nextDouble()) / e.getValue()))
+                .min(Comparator.comparing(AbstractMap.SimpleEntry::getValue))
+                .orElseThrow(IllegalArgumentException::new)
+                .getKey();
     }
 
     /** Allows class that initializes the ClusterControllerClient to close it. */
