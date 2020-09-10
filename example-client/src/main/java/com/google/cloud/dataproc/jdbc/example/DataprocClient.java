@@ -88,7 +88,7 @@ public class DataprocClient {
             res = stmt.executeQuery(sql);
             ResultSetMetaData rsmd = res.getMetaData();
             int columnsNumber = rsmd.getColumnCount();
-            if (res.next()) {
+            while (res.next()) {
                 for (int i = 1; i <= columnsNumber; i++) {
                     if (i > 1) System.out.print(",  ");
                     String columnValue = res.getString(i);

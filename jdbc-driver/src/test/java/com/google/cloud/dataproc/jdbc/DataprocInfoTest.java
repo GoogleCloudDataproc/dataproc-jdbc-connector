@@ -24,6 +24,7 @@ import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.dataproc.v1beta2.Cluster;
 import com.google.cloud.dataproc.v1beta2.ClusterConfig;
 import com.google.cloud.dataproc.v1beta2.ClusterControllerClient;
+import com.google.cloud.dataproc.v1beta2.ClusterMetrics;
 import com.google.cloud.dataproc.v1beta2.ClusterStatus;
 import com.google.cloud.dataproc.v1beta2.EndpointConfig;
 import com.google.common.collect.ImmutableMap;
@@ -44,19 +45,18 @@ public class DataprocInfoTest {
     private final String FILTER_LONG =
             "status.state = ACTIVE AND labels.com = google AND labels.env = staging AND labels.team ="
                     + " dataproc";
+    private final String FILTER_CREATING = "status.state = ACTIVE AND labels.tag = creating";
 
     private final String CLUSTER_NAME_1 = "simple-cluster1";
     private final String CLUSTER_NAME_2 = "simple-cluster2";
+    private final String CLUSTER_NAME_3 = "simple-cluster3";
+    private final String CLUSTER_NAME_4 = "simple-cluster4";
     private final String NO_CLUSTER_NAME = "no-cluster";
 
     private final String HOST_1 =
             "uklx3owiy5bjlgps5cr72oppla-dot-us-central1.dataproc.googleusercontent.com";
     private final String HOST_2 =
             "xgqoq4dqbja2jlqz7dltjhxoka-dot-dataproc-test.googleusercontent.com";
-
-    private final String TOKEN_VALUE = "application-default-access-token";
-    private static final long HOUR = 3600 * 1000;
-    private static final String AUTHORIZATION = "ssl=true;http.header.Proxy-Authorization=Bearer%20";
 
     private HiveJdbcConnectionOptions.Builder paramBuilder;
 
@@ -66,16 +66,20 @@ public class DataprocInfoTest {
     // Mock ListClustersPagedResponse
     private ClusterControllerClient.ListClustersPagedResponse mockListDefault;
     private ClusterControllerClient.ListClustersPagedResponse mockListDefaultDup;
+    private ClusterControllerClient.ListClustersPagedResponse mockListAllCreating;
 
     // Clusters
     private Cluster cluster1;
     private Cluster cluster2;
+    private Cluster cluster3;
+    private Cluster cluster4;
 
     @Before
     public void setUp() {
         mockClusterControllerClient = mock(ClusterControllerClient.class);
         mockListDefault = mock(ClusterControllerClient.ListClustersPagedResponse.class);
         mockListDefaultDup = mock(ClusterControllerClient.ListClustersPagedResponse.class);
+        mockListAllCreating = mock(ClusterControllerClient.ListClustersPagedResponse.class);
 
         Map<String, String> httpPortsMap1 =
                 ImmutableMap.of(
@@ -100,6 +104,7 @@ public class DataprocInfoTest {
                         .setClusterName(CLUSTER_NAME_1)
                         .setProjectId(PROJECT_ID)
                         .setConfig(config1)
+                        .setMetrics(ClusterMetrics.newBuilder().putYarnMetrics("yarn-memory-mb-available", 0).build())
                         .setStatus(ClusterStatus.newBuilder().setState(ClusterStatus.State.RUNNING).build())
                         .build();
         cluster2 =
@@ -107,7 +112,21 @@ public class DataprocInfoTest {
                         .setClusterName(CLUSTER_NAME_2)
                         .setProjectId(PROJECT_ID)
                         .setConfig(config2)
+                        .setMetrics(ClusterMetrics.newBuilder().putYarnMetrics("yarn-memory-mb-available", 0).build())
                         .setStatus(ClusterStatus.newBuilder().setState(ClusterStatus.State.RUNNING).build())
+                        .build();
+
+        cluster3 =
+                Cluster.newBuilder()
+                        .setClusterName(CLUSTER_NAME_3)
+                        .setProjectId(PROJECT_ID)
+                        .setStatus(ClusterStatus.newBuilder().setState(ClusterStatus.State.CREATING).build())
+                        .build();
+        cluster4 =
+                Cluster.newBuilder()
+                        .setClusterName(CLUSTER_NAME_4)
+                        .setProjectId(PROJECT_ID)
+                        .setStatus(ClusterStatus.newBuilder().setState(ClusterStatus.State.CREATING).build())
                         .build();
 
         when(mockListDefault.iterateAll())
@@ -116,12 +135,17 @@ public class DataprocInfoTest {
         when(mockListDefaultDup.iterateAll())
                 .thenReturn(Collections.singleton(cluster1))
                 .thenReturn(Collections.singleton(cluster2));
+        when(mockListAllCreating.iterateAll())
+                .thenReturn(Collections.singleton(cluster3))
+                .thenReturn(Collections.singleton(cluster4));
         when(mockClusterControllerClient.listClusters(PROJECT_ID, REGION, FILTER_DEFAULT))
                 .thenReturn(mockListDefault);
         when(mockClusterControllerClient.listClusters(PROJECT_ID, REGION, FILTER_DUPLICATE))
                 .thenReturn(mockListDefaultDup);
         when(mockClusterControllerClient.listClusters(PROJECT_ID, REGION, FILTER_LONG))
                 .thenReturn(mockListDefaultDup);
+        when(mockClusterControllerClient.listClusters(PROJECT_ID, REGION, FILTER_CREATING))
+                .thenReturn(mockListAllCreating);
 
         when(mockClusterControllerClient.getCluster(PROJECT_ID, REGION, CLUSTER_NAME_1))
                 .thenReturn(cluster1);
@@ -251,6 +275,18 @@ public class DataprocInfoTest {
         HiveJdbcConnectionOptions param = paramBuilder.setClusterPoolLabel(clusterPoolLabel).build();
         DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
         assertThat(infoTest.getHost()).isEqualTo(HOST_1);
+    }
+
+    @Test
+    public void getHost_clusterCreating_throwError() {
+        String clusterPoolLabel = "tag=creating";
+        HiveJdbcConnectionOptions param = paramBuilder.setClusterPoolLabel(clusterPoolLabel).build();
+        DataprocInfo infoTest = new DataprocInfo(param, mockClusterControllerClient);
+        Assertions.assertThrows(
+                InvalidURLException.class,
+                () -> {
+                    infoTest.getHost();
+                });
     }
 
     @Test

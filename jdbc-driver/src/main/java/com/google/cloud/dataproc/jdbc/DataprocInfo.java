@@ -27,16 +27,13 @@ import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /** Helper class to get cluster info through Dataproc API. */
 public class DataprocInfo {
@@ -209,20 +206,24 @@ public class DataprocInfo {
     public Cluster findClusterInPool(String filter) throws SQLException {
         try {
             Map<Cluster, Long> clusterLoads = new HashMap<>();
-            List<Cluster> allClusters = new ArrayList<>();
             for (Cluster response :
                     clusterControllerClient
                             .listClusters(params.projectId(), params.region(), filter)
                             .iterateAll()) {
-                if (response.hasMetrics()
-                        && response.getMetrics().getYarnMetricsOrDefault(YARN_MEMORY, 0) != 0) {
-                    // Do not put cluster with 0 memory available memory into the map to avoid divided by 0
-                    clusterLoads.put(response, response.getMetrics().getYarnMetricsMap().get(YARN_MEMORY));
+
+                // Only connect to cluster with status state `RUNNING` or `UPDATING`
+                if (response.getStatus().getState().toString().equals("CREATING")) {
+                    continue;
                 }
-                allClusters.add(response);
+
+                clusterLoads.put(
+                        response,
+                        response.hasMetrics()
+                                ? response.getMetrics().getYarnMetricsOrDefault(YARN_MEMORY, 0)
+                                : 0);
             }
 
-            if (allClusters.size() == 0) {
+            if (clusterLoads.size() == 0) {
                 throw new InvalidURLException(
                         String.format(
                                 "Unable to find active clusters matching label %s in %s/%s.\n",
@@ -230,9 +231,19 @@ public class DataprocInfo {
             }
 
             Random random = new Random();
-            return clusterLoads.isEmpty() // empty if no cluster has yarn memory available
-                    ? allClusters.get(random.nextInt(allClusters.size())) // randomly pick a cluster
-                    : pickCluster(clusterLoads.entrySet().stream(), random);
+            // pickCluster does not take clusters with 0 memory available memory into the map to avoid
+            // divided by 0
+            Cluster suitableCluster = pickCluster(clusterLoads, random);
+
+            if (suitableCluster == null) {
+                // no cluster has yarn memory available, randomly pick a cluster
+                suitableCluster =
+                        clusterLoads.keySet().stream()
+                                .collect(Collectors.toList())
+                                .get(random.nextInt(clusterLoads.size()));
+            }
+
+            return suitableCluster;
         } catch (ApiException e) {
             if (e.getStatusCode().getCode().equals(StatusCode.Code.NOT_FOUND)) {
                 throw new InvalidURLException(
@@ -248,11 +259,19 @@ public class DataprocInfo {
     /**
      * Random weighted selection of a cluster based on clusters' available yarn memory.
      *
-     * @param clusterLoads map from cluster to the available yarn memory of that cluster
+     * @param clusters map from cluster to the available yarn memory of that cluster
      * @return the selected cluster
      */
-    public static Cluster pickCluster(Stream<Map.Entry<Cluster, Long>> clusterLoads, Random random) {
-        return clusterLoads
+    public static Cluster pickCluster(Map<Cluster, Long> clusters, Random random) {
+        Map<Cluster, Long> clusterLoads =
+                clusters.entrySet().stream()
+                        .filter(entry -> entry.getValue() != 0)
+                        .collect(Collectors.toMap(map -> map.getKey(), map -> map.getValue()));
+        if (clusterLoads.size() == 0) {
+            // empty if no cluster has yarn memory available
+            return null;
+        }
+        return clusterLoads.entrySet().stream()
                 .map(
                         e ->
                                 new AbstractMap.SimpleEntry<>(
